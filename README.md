@@ -506,7 +506,103 @@ For the 13% downsample, 4/5 re-runs have a 1-to-1 match between original run clu
 
 In contrast, all 5 re-runs of the 32% downsample show a loss of this cluster by combining it with another cluster.
 
+I tried running again with all other parameters the same, except increase PCs to 50, and change "prune.SNN" parameter to 0 in the FindNeighbors command. This resulted in separation of the cluster into two as it should be!
 
+	library(Seurat)
+	library(ggplot2)
+	library(gridExtra)
+
+	load("seurat_object_subsamp_32.Rdata")
+
+	mycol <- c("#004949","#009292","#FF6DB6","#FFB677","#490092","#006DDB","#B66DFF","#6DB6FF","#B6DBFF","#920000","#924900","#DBD100","#24FF24","#FFFF6D","#000000")
+    mycol <- mycol[c(2:4,6:14,1,5,15)] #Put lighter colors first.
+
+	panel1 <- DimPlot(seurat.obj,cols=rep(mycol,times=2),label=TRUE) + ggtitle("15 PCs, prune.SNN=1/15")
+
+	seurat.obj <- FindNeighbors(seurat.obj,reduction = "pca",dims = 1:15,prune.SNN=0,force.recalc=TRUE)
+	seurat.obj <- FindClusters(seurat.obj,resolution = 0.6,random.seed=1392)
+	
+	panel2 <- DimPlot(seurat.obj,cols=rep(mycol,times=2),label=TRUE) + ggtitle("15 PCs, prune.SNN = 0")
+
+	seurat.obj <- FindNeighbors(seurat.obj,reduction = "pca",dims = 1:30,prune.SNN=1/15,force.recalc=TRUE)
+	seurat.obj <- FindClusters(seurat.obj,resolution = 0.6,random.seed=1392)
+
+	panel3 <- DimPlot(seurat.obj,cols=rep(mycol,times=2),label=TRUE) + ggtitle("30 PCs, prune.SNN=1/15")
+
+	seurat.obj <- FindNeighbors(seurat.obj,reduction = "pca",dims = 1:30,prune.SNN=0,force.recalc=TRUE)
+	seurat.obj <- FindClusters(seurat.obj,resolution = 0.6,random.seed=1392)
+
+	panel4 <- DimPlot(seurat.obj,cols=rep(mycol,times=2),label=TRUE) + ggtitle("30 PCs, prune.SNN=0")
+
+	seurat.obj <- FindNeighbors(seurat.obj,reduction = "pca",dims = 1:50,prune.SNN=1/15,force.recalc=TRUE)
+	seurat.obj <- FindClusters(seurat.obj,resolution = 0.6,random.seed=1392)
+
+	panel5 <- DimPlot(seurat.obj,cols=rep(mycol,times=2),label=TRUE) + ggtitle("50 PCs, prune.SNN=1/15")
+	
+	seurat.obj <- FindNeighbors(seurat.obj,reduction = "pca",dims = 1:50,prune.SNN=0,force.recalc=TRUE)
+	seurat.obj <- FindClusters(seurat.obj,resolution = 0.6,random.seed=1392)
+
+	panel6 <- DimPlot(seurat.obj,cols=rep(mycol,times=2),label=TRUE) + ggtitle("50 PCs, prune.SNN=0")
+
+	grid.arrange(panel1,panel2,panel3,panel4,panel5,panel6,ncol=2,top="32% downsample, UMAP based on PCs 1-15, change cluster parameters")
+	grid.arrange(panel1,panel6,ncol=2,top="32% downsample, UMAP based on PCs 1-15, change cluster parameters")
+
+	load("seurat_object_subsamp_32.Rdata")
+
+	old_clusters <- Idents(seurat.obj)
+
+	seurat.obj <- FindNeighbors(seurat.obj,reduction = "pca",dims = 1:50,prune.SNN=0,force.recalc=TRUE)
+	seurat.obj <- FindClusters(seurat.obj,resolution = 0.6,random.seed=1392)
+
+	new_clusters <- Idents(seurat.obj)
+
+	table(old_clusters,new_clusters)
+
+We find that, for better or for worse, clusters 2, 12, 13, and 14 are combined with other clusters and are no longer distinct when increase number of PCs and decrease prune.SNN to 0.
+
+Cluster 2 combined into 0, 12 into 8, 13 into 1, and 14 into 2 respectively.
+
+Recalculate UMAP using higher number of PCs.
+
+	seurat.obj <- RunUMAP(seurat.obj,reduction = "pca",dims = 1:50,seed.use=1392)
+
+	DimPlot(seurat.obj,cols=rep(mycol,times=2),label=TRUE) + ggtitle("UMAP and cluster on 50 PCs, prune.SNN=0")
+
+Compare 32% downsample to full clustering results if take all clusters for 32% downsample as before, except ID cells as a separate cluster when they are separated only with 50 PCs and prune.SNN=0.
+
+Call new cluster "cluster 18".
+
+	library(Seurat)
+	library(pheatmap)
+
+	downsample <- read.csv("seurat_metadata_subsamp_32.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+	full <- read.csv("seurat_metadata_full_data.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+
+	load("seurat_object_subsamp_32.Rdata")
+
+	seurat.obj <- FindNeighbors(seurat.obj,reduction = "pca",dims = 1:50,prune.SNN=0,force.recalc=TRUE)
+	seurat.obj <- FindClusters(seurat.obj,resolution = 0.6,random.seed=1392)
+
+	redo_downsample <- seurat.obj@meta.data
+
+	matched_cells <- intersect(rownames(downsample),rownames(full))
+
+	downsample <- downsample[matched_cells,]
+	full <- full[matched_cells,]
+
+	redo_downsample <- redo_downsample[matched_cells,]
+
+	downsample_clusters <- ifelse(redo_downsample$seurat_clusters == 13,18,downsample$seurat_clusters)
+	full_clusters <- full$seurat_clusters
+
+	prop_table <- table(full_clusters,downsample_clusters)
+	prop_table <- sweep(prop_table*100,1,rowSums(prop_table),FUN="/")
+
+	pheatmap(prop_table[,c(1:6,8,7,9,11,10,12,13,15,16,17,19,18,14)],cluster_rows=FALSE,cluster_cols=FALSE)
+
+We find that the 32% downsample actually has an extra cluster that is not found in the full data.
+
+Otherwise, we now get a 1-1 match between the full data and downsample clusters.
 
 # References
 
