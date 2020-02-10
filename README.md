@@ -238,7 +238,174 @@ As we might expect, this is substantially higher than the 0.86-0.88 we see when 
 
 However, it is notable that even different runs of the exact same data may be nowhere near identical.
 
+## Compare clustering results between downsamples.
+
 Now, let's compare clustering results based on percentage of cells from each cluster assigned to new clusters for the full data vs. the 13, 32, and 65% downsamples, as well as the fourth iteration of running Seurat with a different seed between runs.
+
+	library(ggplot2)
+
+	row_data <- read.csv("seurat_metadata_full_data.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+
+	col_data <- read.csv("seurat_metadata_subsamp_13.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+	col_data <- col_data[intersect(rownames(row_data),rownames(col_data)),]
+	row_data_matched <- row_data[intersect(rownames(row_data),rownames(col_data)),]
+	
+	row_vs_col_data <- table(row_data_matched$seurat_clusters,col_data$seurat_clusters)
+	row_vs_col_data <- sweep(row_vs_col_data,1,rowSums(row_vs_col_data),FUN="/")
+	row_vs_col_data <- data.frame(row_vs_col_data,
+		Downsample_pct = "13%",stringsAsFactors=FALSE)
+	colnames(row_vs_col_data)[1:3] <- c("Original_cluster","Downsample_or_rerun_cluster","Pct_original")
+	row_vs_col_data_across_downsamples <- row_vs_col_data
+
+	for(sample in c(32,65))
+	{
+		col_data <- read.csv(paste0("seurat_metadata_subsamp_",sample,".csv"),header=TRUE,row.names=1,stringsAsFactors=FALSE)
+		col_data <- col_data[intersect(rownames(row_data),rownames(col_data)),]
+		row_data_matched <- row_data[intersect(rownames(row_data),rownames(col_data)),]
+		row_vs_col_data <- table(row_data_matched$seurat_clusters,col_data$seurat_clusters)
+		row_vs_col_data <- sweep(row_vs_col_data,1,rowSums(row_vs_col_data),FUN="/")
+		row_vs_col_data <- data.frame(row_vs_col_data,
+			Downsample_pct = paste0(sample,"%"),stringsAsFactors=FALSE)
+		colnames(row_vs_col_data)[1:3] <- c("Original_cluster","Downsample_or_rerun_cluster","Pct_original")
+		row_vs_col_data_across_downsamples <- rbind(row_vs_col_data_across_downsamples,row_vs_col_data)
+	}
+
+	col_data <- read.csv("seurat_metadata_full_data_repeat_iteration_4.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+	col_data <- col_data[intersect(rownames(row_data),rownames(col_data)),]
+	row_data_matched <- row_data[intersect(rownames(row_data),rownames(col_data)),]
+	row_vs_col_data <- table(row_data_matched$seurat_clusters,col_data$seurat_clusters)
+	row_vs_col_data <- sweep(row_vs_col_data,1,rowSums(row_vs_col_data),FUN="/")
+	row_vs_col_data <- data.frame(row_vs_col_data,
+		Downsample_pct = "100%, but change seed",stringsAsFactors=FALSE)
+	colnames(row_vs_col_data)[1:3] <- c("Original_cluster","Downsample_or_rerun_cluster","Pct_original")
+	row_vs_col_data_across_downsamples <- rbind(row_vs_col_data_across_downsamples,row_vs_col_data)
+
+	row_vs_col_data_across_downsamples$Downsample_pct <- factor(row_vs_col_data_across_downsamples$Downsample_pct,
+		levels=c("100%, but change seed","65%","32%","13%"))
+
+	row_vs_col_data_across_downsamples$Pct_original <- row_vs_col_data_across_downsamples$Pct_original*100
+
+	ggplot(row_vs_col_data_across_downsamples,
+		aes(y=Original_cluster,x=Downsample_or_rerun_cluster,fill=Pct_original)) + 
+		geom_tile(colour="black") +
+		facet_wrap(~Downsample_pct,scales="free_x") +
+		xlab("Downsample cluster") +
+		ylab("Original cluster") +
+		scale_fill_gradient(low="white",high="black")
+
+In comparing different Seurat runs of the full data, we find that clusters 4 and 6 from the original clusters show the most change. Cluster 7 in the second run is most similar to cluster 4 in the first run. But we also find a substantial proportion of cells from original cluster 4 in other clusters in the re-run. Cluster 8 in the second run is most similar to cluster 6 in the first run. But this cluster also contains a lot of cells from cluster 4 in the first run. Cluster 8 from the first run is also combined with a subset of cluster 6 from the first run in the re-run.
+
+In comparing the 65% downsample to the full data, we also see that cluster 6 in the original run of the full data changes substantially in the downsample. In addition to cluster 1 in the original run.
+
+Let's get the max percent of cells matched to any given cluster in the re-run/downsample for each re-run/downsample and original cluster.
+
+	max_pcts_original <- aggregate(Pct_original ~ Original_cluster + Downsample_pct,data=row_vs_col_data_across_downsamples,FUN=max)
+
+Get range of this for original run clusters 12-17.
+
+	range( max_pcts_original[as.numeric(as.vector(max_pcts_original$Original_cluster)) >= 12,"Pct_original"])
+
+Notably, all of the very small clusters in the original run in the full data (clusters 12-17) are matched to only one cluster in the re-run or downsample. However, once we downsample to 32% or lower, we started to see original run cluster 16 joined with cells from a larger cluster (11) in the downsample. Once we downsample to 13%, we also lost distinct clustering for original run clusters 12 and 13.
+
+Let's also visualize the 13% downsample vs. the 32% downsample.
+
+Since the 32% downsample is roughly equal to the recommended number of reads from 10X, it may also be informative to see how the 13% compares when we treat this level of reads as the ground truth rather than the full data.
+
+	row_data <- read.csv("seurat_metadata_subsamp_32.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+	col_data <- read.csv("seurat_metadata_subsamp_13.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+	col_data <- col_data[intersect(rownames(row_data),rownames(col_data)),]
+	row_data_matched <- row_data[intersect(rownames(row_data),rownames(col_data)),]
+	row_vs_col_data <- table(row_data_matched$seurat_clusters,col_data$seurat_clusters)
+	row_vs_col_data <- sweep(row_vs_col_data*100,1,rowSums(row_vs_col_data),FUN="/")
+	row_vs_col_data <- data.frame(row_vs_col_data,stringsAsFactors=FALSE)
+	colnames(row_vs_col_data)[1:3] <- c("Original_cluster","Downsample_or_rerun_cluster","Pct_original")
+
+	ggplot(row_vs_col_data,
+		aes(y=Original_cluster,x=Downsample_or_rerun_cluster,fill=Pct_original)) +
+		geom_tile(colour="black") +
+		xlab("Downsample 13% cluster") +
+		ylab("Downsample 32% cluster") +
+		scale_fill_gradient(low="white",high="black")
+
+Let's also make a UMAP plot with UMAP coordinates based on 13% downsample, color by clusters from 13% downsample vs. 32% downsample.
+
+	library(Seurat)
+	library(gridExtra)
+	library(ggplot2)
+
+	load("seurat_object_subsamp_13.Rdata")
+
+	downsample <- read.csv("seurat_metadata_subsamp_13.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+	full <- read.csv("seurat_metadata_subsamp_32.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+
+	matched_cells <- intersect(rownames(downsample),rownames(full))
+
+	seurat.obj$in_both <- ifelse(rownames(downsample) %in% matched_cells,"Yes","No")
+
+	seurat.obj <- subset(seurat.obj,in_both == "Yes")
+
+	seurat.obj$downsample_cluster <- seurat.obj$seurat_clusters
+	seurat.obj$full_cluster <- full[rownames(seurat.obj@meta.data),"seurat_clusters"]
+
+	mycol <- c("#004949","#009292","#FF6DB6","#FFB677","#490092","#006DDB","#B66DFF","#6DB6FF","#B6DBFF","#920000","#924900","#DBD100","#24FF24","#FFFF6D","#000000")
+	mycol <- mycol[c(2:4,6:14,1,5,15)] #Put lighter colors first.
+
+	panel1 <- DimPlot(seurat.obj,group.by="full_cluster",cols=rep(mycol,times=2),label=TRUE) + ggtitle("Clusters from 32% downsample")
+	panel2 <- DimPlot(seurat.obj,group.by="downsample_cluster",cols=rep(mycol,times=2),label=TRUE) + ggtitle("Clusters from 13% downsample")
+
+	grid.arrange(panel1,panel2,ncol=2,top="UMAP coords from 13% downsample in both")
+
+And print cells for each combination of cluster in 32% vs. 13%.
+
+	table(seurat.obj$full_cluster,seurat.obj$downsample_cluster)
+
+Interestingly, clusters 6 and 8 in the 13% downsample actually appears a bit more sensible (at least from the UMAP) than clusters 7 and 8 in the 32% downsample. Though they might look different when using the UMAP based on the 32% downsample.
+
+We also see that cluster 11 looks a bit strange in both downsamples. Presumably the distinct part of this cluster comes from the cells named "cluster 16" in the original run of the full data.
+
+Clusters 12,13, and 14 are all lost going from the 32% to 13% downsample. 
+
+Let's now plot the 32% UMAP coordinates vs. the 32% clusters.
+
+	library(Seurat)
+	library(ggplot2)
+
+	load("seurat_object_subsamp_32.Rdata")
+
+	downsample <- read.csv("seurat_metadata_subsamp_13.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+	full <- read.csv("seurat_metadata_subsamp_32.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+
+	matched_cells <- intersect(rownames(downsample),rownames(full))
+
+	seurat.obj$in_both <- ifelse(rownames(seurat.obj@meta.data) %in% matched_cells,"Yes","No")
+
+	seurat.obj <- subset(seurat.obj,in_both == "Yes")
+
+	mycol <- c("#004949","#009292","#FF6DB6","#FFB677","#490092","#006DDB","#B66DFF","#6DB6FF","#B6DBFF","#920000","#924900","#DBD100","#24FF24","#FFFF6D","#000000")
+	mycol <- mycol[c(2:4,6:14,1,5,15)] #Put lighter colors first.
+
+	DimPlot(seurat.obj,cols=rep(mycol,times=2),label=TRUE) + ggtitle("Clusters + UMAP coords from 32% downsample")
+
+Clusters 12, 13, and 14 all appear very distinct now when using the UMAP coordinates from 32% downsample.
+
+Get markers for these clusters, and plot a few for each in a heatmap.
+
+	markers_cluster12 <- FindMarkers(seurat.obj,ident.1=12,only.pos=TRUE,min.pct=0.50)
+	markers_cluster13 <- FindMarkers(seurat.obj,ident.1=13,only.pos=TRUE,min.pct=0.50)
+	markers_cluster14 <- FindMarkers(seurat.obj,ident.1=14,only.pos=TRUE,min.pct=0.50)
+
+	#Take an extra marker for cluster 14 so have 10 unique genes per cluster.
+	markers_for_heatmap <- c(rownames(markers_cluster12)[order(markers_cluster12$avg_logFC,decreasing=TRUE)[1:10]],
+		rownames(markers_cluster13)[order(markers_cluster13$avg_logFC,decreasing=TRUE)[1:10]],
+		rownames(markers_cluster14)[order(markers_cluster14$avg_logFC,decreasing=TRUE)[1:11]])
+
+	markers_for_heatmap <- unique(markers_for_heatmap)
+
+	seurat.obj <- ScaleData(seurat.obj,features=unique(c(VariableFeatures(seurat.obj),markers_for_heatmap)))
+
+	DoHeatmap(seurat.obj,features=markers_for_heatmap) + NoLegend() + ggtitle("32% downsample, top 10 markers each clusters 12-14")
+
+It looks like each of these clusters does have a lot in common with the larger cluster they were combined with in the 13% downsample (labeled as 2 and 12, 1 and 13, and 4 and 14 in the 32% downsample).
 
 
 
