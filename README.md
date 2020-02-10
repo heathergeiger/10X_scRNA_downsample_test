@@ -407,6 +407,105 @@ Get markers for these clusters, and plot a few for each in a heatmap.
 
 It looks like each of these clusters does have a lot in common with the larger cluster they were combined with in the 13% downsample (labeled as 2 and 12, 1 and 13, and 4 and 14 in the 32% downsample).
 
+Next, let's take a similar look at the data comparing 32% downsample to full data (original Seurat run).
+
+	library(Seurat)
+	library(gridExtra)
+	library(ggplot2)
+
+	load("seurat_object_subsamp_32.Rdata")
+
+	downsample <- read.csv("seurat_metadata_subsamp_32.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+	full <- read.csv("seurat_metadata_full_data.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+
+	matched_cells <- intersect(rownames(downsample),rownames(full))
+
+	seurat.obj$in_both <- ifelse(rownames(downsample) %in% matched_cells,"Yes","No")
+
+	seurat.obj <- subset(seurat.obj,in_both == "Yes")
+
+	seurat.obj$downsample_cluster <- seurat.obj$seurat_clusters
+	seurat.obj$full_cluster <- full[rownames(seurat.obj@meta.data),"seurat_clusters"]
+
+	mycol <- c("#004949","#009292","#FF6DB6","#FFB677","#490092","#006DDB","#B66DFF","#6DB6FF","#B6DBFF","#920000","#924900","#DBD100","#24FF24","#FFFF6D","#000000")
+	mycol <- mycol[c(2:4,6:14,1,5,15)] #Put lighter colors first.
+
+	panel1 <- DimPlot(seurat.obj,group.by="full_cluster",cols=rep(mycol,times=2),label=TRUE) + ggtitle("Clusters from full data")
+	panel2 <- DimPlot(seurat.obj,group.by="downsample_cluster",cols=rep(mycol,times=2),label=TRUE) + ggtitle("Clusters from 32% downsample")
+
+	grid.arrange(panel1,panel2,ncol=2,top="UMAP coords from 32% downsample in both")
+
+These results are remarkably similar, with the notable exception that cluster 16 from the original run is combined with a larger cluster in the downsample.
+
+Let's look for markers of this cluster in the full data.
+
+	library(Seurat)
+	library(ggplot2)
+
+	load("seurat_object_full_data.Rdata")
+
+	downsample <- read.csv("seurat_metadata_subsamp_32.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+    full <- read.csv("seurat_metadata_full_data.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+
+    matched_cells <- intersect(rownames(downsample),rownames(full))
+
+    seurat.obj$in_both <- ifelse(rownames(seurat.obj@meta.data) %in% matched_cells,"Yes","No")
+
+    seurat.obj <- subset(seurat.obj,in_both == "Yes")
+
+	markers_cluster16 <- FindMarkers(seurat.obj,ident.1=16,min.pct=0.50)
+
+	seurat.obj <- ScaleData(seurat.obj,features=unique(c(VariableFeatures(seurat.obj),rownames(markers_cluster16))))
+
+	DoHeatmap(seurat.obj,
+		features=rownames(markers_cluster16[order(markers_cluster16$avg_logFC,decreasing=TRUE)[1:20],])) +
+	NoLegend() +
+	ggtitle("Top 20 markers cluster 16, full data original run")
+
+Looks like this cluster is quite distinct, and is lost in the downsamples of 32% and 13%. But retained in the larger downsample (65%).
+
+One question, though - could this just be that we had a bad run of these particular downsamples?
+
+Let's re-run downsamples 13% and 32% with different seeds as well. Save as seurat_metadata_subsamp_${13/32}_iteration_${1-5}.csv.
+
+Then, look at whether the matched cluster for original run cluster 16 also contains a substantial proportion of cells from other original run clusters.
+
+	full <- read.csv("seurat_metadata_full_data.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+
+	sample=32
+
+	for(i in 1:5)
+	{
+		downsample <- read.csv(paste0("seurat_metadata_subsamp_",sample,"_iteration_",i,".csv"),header=TRUE,row.names=1,stringsAsFactors=FALSE)
+		matched_cells <- intersect(rownames(downsample),rownames(full))
+		downsample <- downsample[matched_cells,]
+		full_matched <- full[matched_cells,]
+		full_vs_downsample <- table(full_matched$seurat_clusters,downsample$seurat_clusters)
+		matched_cluster16 <- which(as.numeric(as.vector(full_vs_downsample["16",])) == max(as.numeric(as.vector(full_vs_downsample["16",]))))
+		full_for_matched_cluster16 <- as.numeric(as.vector(full_vs_downsample[,matched_cluster16]))
+		print(full_for_matched_cluster16[order(full_for_matched_cluster16,decreasing=TRUE)])
+	}
+
+	sample=13
+
+	for(i in 1:5)
+    {
+        downsample <- read.csv(paste0("seurat_metadata_subsamp_",sample,"_iteration_",i,".csv"),header=TRUE,row.names=1,stringsAsFactors=FALSE)
+        matched_cells <- intersect(rownames(downsample),rownames(full))
+        downsample <- downsample[matched_cells,]
+        full_matched <- full[matched_cells,]
+		full_vs_downsample <- table(full_matched$seurat_clusters,downsample$seurat_clusters)
+        matched_cluster16 <- which(as.numeric(as.vector(full_vs_downsample["16",])) == max(as.numeric(as.vector(full_vs_downsample["16",]))))
+        full_for_matched_cluster16 <- as.numeric(as.vector(full_vs_downsample[,matched_cluster16]))
+        print(full_for_matched_cluster16[order(full_for_matched_cluster16,decreasing=TRUE)])
+    }
+
+Strangely, it looks like the 13% downsample is generally better than the 32% downsample in this respect.
+
+For the 13% downsample, 4/5 re-runs have a 1-to-1 match between original run cluster 16 and the re-run of 13% downsample.
+
+In contrast, all 5 re-runs of the 32% downsample show a loss of this cluster by combining it with another cluster.
+
 
 
 # References
