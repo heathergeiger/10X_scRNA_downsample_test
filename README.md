@@ -102,6 +102,8 @@ After this, we ran fairly standard Seurat analysis on each downsample level.
 
 For this analysis, we used Seurat v3.0.1.9015.
 
+Would run the code below using arguments "subsamp_13", "subsamp_32", "subsamp_65", and "full_data".
+
 	#Accept downsample level as command line argument.
 
 	args <- commandArgs(trailingOnly=TRUE)
@@ -110,6 +112,60 @@ For this analysis, we used Seurat v3.0.1.9015.
 	#Load libraries.
 
 	library(Seurat)
+
+	#Read in gene-cell UMI count matrix.
+
+	counts <- Read10X(paste0("CellRanger_output/",downsample_level,"/",downsample_level,"/outs/filtered_feature_bc_matrix"))
+
+	#Create Seurat object.
+	#Require genes to be expressed in 10+ cells.
+
+	seurat.obj <- CreateSeuratObject(counts,min.cells=10)
+
+	#Get mitochondrial rates.
+
+	seurat.obj$percent.mito <- PercentageFeatureSet(seurat.obj,pattern="^mt-")
+
+	#Remove cells with >30% mitochondrial rate.
+
+	seurat.obj <- subset(seurat.obj,percent.mito < 30)
+
+	#Remove cells in the bottom 5% by nGene.
+	#This results in a cutoff of ~500 using the full dataset.
+
+	nGene_cutoff <- quantile(seurat.obj$nFeature_RNA,probs=.05)
+
+	seurat.obj <- subset(seurat.obj,nFeature_RNA > nGene_cutoff)
+
+	#Removal of low-quality cells complete.
+	#Ready to run standard pipeline up to PCA analysis.
+	#Again we set seed as appropriate for reproducibility.
+
+	seurat_seed = 1392
+
+	seurat.obj <- NormalizeData(seurat.obj)
+	seurat.obj <- FindVariableFeatures(seurat.obj,selection.method = "mean.var.plot")
+	seurat.obj <- ScaleData(seurat.obj,features = VariableFeatures(seurat.obj))
+	seurat.obj <- RunPCA(seurat.obj,features = VariableFeatures(seurat.obj),seed.use=seurat_seed)
+
+	#Normally here, would explore the variance explained per PC to choose which PCs to run.
+	#However this manual review is not very conducive to automated analysis.
+	#So here, we run with the same number of PCs (first 15) for all downsample levels.
+	#This should be more than sufficient given the relatively low number of cells here.
+
+	PCs_to_use = 1:15
+
+	seurat.obj <- FindNeighbors(seurat.obj,reduction = "pca",dims = PCs_to_use)
+	seurat.obj <- FindClusters(seurat.obj,resolution = 0.6,random.seed=seurat_seed) 
+	seurat.obj <- RunUMAP(seurat.obj,reduction = "pca",dims = PCs_to_use,seed.use=seurat_seed)
+
+	#Save Seurat object.
+
+	save(seurat.obj,file=paste0("seurat_object_",downsample_level,".Rdata"))
+
+	#Output clustering results and QC metrics (nUMI and nGene and mito rates) per cell as well.
+
+	write.csv(seurat.obj@meta.data,file=paste0("seurat_metadata_",downsample_level,".csv"),row.names=TRUE,quote=TRUE)
 
 # References
 
