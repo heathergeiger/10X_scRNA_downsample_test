@@ -167,6 +167,81 @@ Would run the code below using arguments "subsamp_13", "subsamp_32", "subsamp_65
 
 	write.csv(seurat.obj@meta.data,file=paste0("seurat_metadata_",downsample_level,".csv"),row.names=TRUE,quote=TRUE)
 
+We were also curious how much clustering results would vary running Seurat multiple times on the same dataset. Therefore, we also ran the full data using the same pipeline above, but with different seeds (1393-1397).
+
+These results were saved in files seurat_metadata_full_data_repeat_iteration_${1-5}.csv.
+
+Now, let's begin comparing clustering results by using the adjusted rand index score to summarize how well the clusters correspond using a single number.
+
+For the adjusted rand index score, we use a command from the fossil package.
+
+Let's get the scores for all pairwise comparisons of 13%, 32%, 65%, and 100% downsample levels.
+
+	library(fossil)
+
+	downsample_levels <- c(13,32,65,100)
+
+	adj_rand_index_scores <- matrix(NA,nrow=4,ncol=4,
+		dimnames=list(as.character(downsample_levels),as.character(downsample_levels)))
+
+	for(i in 1:4){adj_rand_index_scores[i,i] <- 1}
+
+	for(larger_sample in c(32,65,100))
+	{
+		larger_sample_string <- ifelse(larger_sample == 100,
+			"full_data",paste0("subsamp_",larger_sample))
+		for(smaller_sample in downsample_levels[downsample_levels < larger_sample])
+		{
+				downsample <- read.csv(paste0("seurat_metadata_subsamp_",smaller_sample,".csv"),
+					header=TRUE,row.names=1,stringsAsFactors=FALSE)
+				full <- read.csv(paste0("seurat_metadata_",larger_sample_string,".csv"),
+					header=TRUE,row.names=1,stringsAsFactors=FALSE)
+				matched_cells <- intersect(rownames(downsample),rownames(full))
+				downsample <- downsample[matched_cells,"seurat_clusters"]
+				full <- full[matched_cells,"seurat_clusters"]
+				adj_rand_index_scores[as.character(smaller_sample),as.character(larger_sample)] <- adj.rand.index(downsample,full)
+		}
+	}
+
+Visualize using pheatmap.
+
+	library(pheatmap)
+
+	rownames(adj_rand_index_scores) <- paste0(downsample_levels,"%")
+	colnames(adj_rand_index_scores) <- rownames(adj_rand_index_scores)
+
+	pheatmap(adj_rand_index_scores,
+		cluster_rows=FALSE,cluster_cols=FALSE,
+		display_numbers=TRUE,
+		main="Adj rand index scores between downsample levels")
+
+We find that the clusters from the 13% downsample appear very different from not only the full data, but also from the 32% and 65% downsamples according to this metric.
+
+We also find that the 32% and 65% downsamples appear to be relatively comparable in their clustering results according to this metric.
+
+How do these adjusted rand index scores compare to different runs of Seurat on the exact same data?
+
+	library(fossil)
+
+	iteration0 <- read.csv("seurat_metadata_full_data.csv",header=TRUE,row.names=1,stringsAsFactors=FALSE)
+	
+	for(i in 1:5)
+	{
+		other_iteration <- read.csv(paste0("seurat_metadata_full_data_repeat_iteration_",i,".csv"),header=TRUE,row.names=1,stringsAsFactors=FALSE)
+		iteration0 <- iteration0[rownames(other_iteration),] #Cells will all match, just reorder as needed.
+		print(round(adj.rand.index(iteration0$seurat_clusters,other_iteration$seurat_clusters),digits=2))
+	}
+
+Different runs of Seurat run on the exact same data, compared to an initial run, produce adjusted rand index scores from 0.91-0.96.
+
+As we might expect, this is substantially higher than the 0.86-0.88 we see when comparing between the 32, 65%, and 100% downsamples.
+
+However, it is notable that even different runs of the exact same data may be nowhere near identical.
+
+Now, let's compare clustering results based on percentage of cells from each cluster assigned to new clusters for the full data vs. the 13, 32, and 65% downsamples, as well as the fourth iteration of running Seurat with a different seed between runs.
+
+
+
 # References
 
 Stoeckius, M., Zheng, S., Houck-Loomis, B. et al. Cell Hashing with barcoded antibodies enables multiplexing and doublet detection for single cell genomics. Genome Biol 19, 224 (2018). https://doi.org/10.1186/s13059-018-1603-1
