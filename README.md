@@ -383,6 +383,22 @@ Overall the higher resolution is not the best, as it creates some extra clusters
 
 However, this shows that we actually do also find clusters 12 and 13 from the full data in the 13% downsample, although it requires playing around with Seurat parameters a bit.
 
+# Conclusions
+
+It appears from this analysis that even with only half the recommended reads per cell, we were able to reproduce the same cell types as found with much greater sequencing depth. However, this comes with some important assumptions.
+
+In particular, it is important to note that certain cell types from the full dataset were only fo und in the downsampled data after changing certain parameters in Seurat from their defaults. In a real-world scenario, where one would not have the full dataset available as a reference, you would not necessarily know that these parameters required tweaks unless you had some other reference (like an underlying knowledge of the biology) to know which cell types were missing. 
+
+For the change of resolution parameter in the 13% downsample, this is a fairly standard parameter to try to optimize in a Seurat workflow. It is common to test different values for this parameter to see if any additional interesting cell types appear at higher resolution. So it is fairly likely that all cell types would have been found in this data even if the analyst did not have any knowledge of the underlying biology.
+
+However, the 32% downsample required extensive non-standard changes to parameters in order to obtain all clusters from the full data. Adjusting the pruning of the shared nearest neighbor graph is not typically done unless something is seen as "wrong" with the clustering, as we had here. Although the discrepancy between the UMAP coordinates and the cluster IDs might raise flags here, it could be possible that this cell type may have been missed in the 32% downsample given a standard workflow.
+
+The fact that the 13% but not the 32% downsample was able to find all cell types using only standard parameter changes also highlights the stochastic nature of this downsampling experiment, and RNA-seq in general. It is possible that a different 32% downsample might have showed better performance.
+
+Another limitation of this experiment is that we did not test differential expression between clusters, only consistency of clusters. If one were interested in finding marker genes of each cell type, it is possible and in fact likely that deeper sequencing would provide a greater ability to characterize the expression signature of cell types.
+
+Still, this analysis is very promising in its suggestion that one can still gain quite a lot of the same information while minimizing sequencing costs to quite low levels. It would be very interesting to see if we obtain similar results analyzing other datasets, including other cell types besides embryonic mouse neurons.
+
 # References
 
 Stoeckius, M., Zheng, S., Houck-Loomis, B. et al. Cell Hashing with barcoded antibodies enables multiplexing and doublet detection for single cell genomics. Genome Biol 19, 224 (2018). https://doi.org/10.1186/s13059-018-1603-1
