@@ -387,7 +387,7 @@ However, this shows that we actually do also find clusters 12 and 13 from the fu
 
 It appears from this analysis that even with only half the recommended reads per cell, we were able to reproduce the same cell types as found with much greater sequencing depth. However, this comes with some important assumptions.
 
-In particular, it is important to note that certain cell types from the full dataset were only fo und in the downsampled data after changing certain parameters in Seurat from their defaults. In a real-world scenario, where one would not have the full dataset available as a reference, you would not necessarily know that these parameters required tweaks unless you had some other reference (like an underlying knowledge of the biology) to know which cell types were missing. 
+In particular, it is important to note that certain cell types from the full dataset were only found in the downsampled data after changing certain parameters in Seurat from their defaults. In a real-world scenario, where one would not have the full dataset available as a reference, you would not necessarily know that these parameters required tweaks unless you had some other reference (like an underlying knowledge of the biology) to know which cell types were missing. 
 
 For the change of resolution parameter in the 13% downsample, this is a fairly standard parameter to try to optimize in a Seurat workflow. It is common to test different values for this parameter to see if any additional interesting cell types appear at higher resolution. So it is fairly likely that all cell types would have been found in this data even if the analyst did not have any knowledge of the underlying biology.
 
