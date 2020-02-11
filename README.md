@@ -286,6 +286,9 @@ Now, let's compare clustering results based on percentage of cells from each clu
 		file="clusters_full_vs_subsamp_32_with_reorder.png",
 		main="Same but with reorder clusters to show match-up")
 
+![](figures/clusters_full_vs_subsamp_32_no_reorder.png)
+![](figures/clusters_full_vs_subsamp_32_with_reorder.png)
+
 We find that all clusters from the full data except cluster 16 have a 1-1 match-up with the clusters in the 32% downsample.
 
 What about if we compare the results from the 32% downsample where we increased number of PCs and ran clustering without pruning the SNN graph?
@@ -308,6 +311,8 @@ What about if we compare the results from the 32% downsample where we increased 
 		cluster_rows=FALSE,cluster_cols=FALSE,
 		file="clusters_full_vs_subsamp_32_different_cluster_settings.png",
 		main="Percent cells from full data clusters in downsample clusters\nw/ 50 PCs, prune.SNN=0") 
+
+![](figures/clusters_full_vs_subsamp_32_different_cluster_settings.png)
 
 The downsample clusters overall look not as good, with worse match-up to the full data.
 
@@ -337,6 +342,9 @@ Now, let's move on to looking at the 13% downsample data.
 		cluster_rows=FALSE,cluster_cols=FALSE,
 		file="clusters_full_vs_subsamp_13_with_reorder.png",
 		main="Same but with reorder clusters to show match-up")
+
+![](figures/clusters_full_vs_subsamp_13_no_reorder.png)
+![](figures/clusters_full_vs_subsamp_13_with_reorder.png)
 
 Looks like we lose clusters 12 and 13 going down to the 13% downsample, at least with running Seurat using identical settings.
 
@@ -368,9 +376,13 @@ These results are saved in seurat_metadata_subsamp_13_highres.csv. Let's compare
 		file="clusters_full_vs_subsamp_13_highres_with_reorder.png",
 		main="Same but with reorder clusters to show match-up")
 
+![](figures/clusters_full_vs_subsamp_13_highres_no_reorder.png)
+![](figures/clusters_full_vs_subsamp_13_highres_with_reorder.png)
+
 Overall the higher resolution is not the best, as it creates some extra clusters that were not there in the full data.
 
 However, this shows that we actually do also find clusters 12 and 13 from the full data in the 13% downsample, although it requires playing around with Seurat parameters a bit.
+
 # References
 
 Stoeckius, M., Zheng, S., Houck-Loomis, B. et al. Cell Hashing with barcoded antibodies enables multiplexing and doublet detection for single cell genomics. Genome Biol 19, 224 (2018). https://doi.org/10.1186/s13059-018-1603-1
