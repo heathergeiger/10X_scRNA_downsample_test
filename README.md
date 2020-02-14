@@ -2,7 +2,7 @@
 
 Single-cell RNA-sequencing is a rapidly growing field that allows one to see which genes are expressed in subsets of a tissue or particular cell types rather than just in aggregate.
 
-10X Genomics has a very useful protocol for performing single-cell RNA-seq at high throughput. This protocol may be combined with cell hashing, which uses an oligonucleotide to label each cell with its sample of origin, to sequence cells from multiple different samples all at once (Stoeckius et al., 2018).
+10X Genomics has a very useful protocol for performing single-cell RNA-seq at high throughput. This protocol may be combined with cell hashing, which uses an oligo-tagged antibody to label each cell with its sample of origin, to sequence cells from multiple different samples all at once (Stoeckius et al., 2018).
 
 In a typical cell hashing experiment, the 10X instrument is "super-loaded" with a very high concentration of cells, which results in an expected number of cells of around 20,000 singlets and 5,000 multiplets. As opposed to in an experiment without super-loading, this means that the number of cells is relatively fixed. Therefore rather than trying to trade off the number of cells vs. number of reads per cell given a fixed sequencing cost, the question becomes how much we can minimize sequencing cost while still determining the same biology from a fixed number of cells.
 
